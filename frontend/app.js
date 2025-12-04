@@ -1,142 +1,187 @@
-const API_URL = "http://localhost:8000"; // IMPORTANTE: CAMBIAR ESTO EL DÍA DEL EXAMEN SI ESTAS EN RENDER
+// CAMBIAR EN PRODUCCIÓN
+const API_URL = "http://localhost:8000"; 
+// const API_URL = "https://tu-backend.onrender.com";
 
-// 1. Verificar Autenticación al inicio
 const token = localStorage.getItem("token");
-const role = localStorage.getItem("role");
-const username = localStorage.getItem("username");
+const myUsername = localStorage.getItem("username"); // En este examen es el Email
 
-if (!token) {
-  window.location.href = "login.html";
-}
+if (!token) window.location.href = "login.html";
 
-// Mostrar panel de admin solo si es admin
-document.getElementById(
-  "userInfo"
-).innerText = `Logueado como: ${username} (${role})`;
-if (role === "admin") {
-  document.getElementById("adminPanel").classList.remove("hidden");
-}
+document.getElementById("userInfo").innerText = `Usuario: ${myUsername}`;
 
-// 2. Inicializar Mapa (Leaflet)
-// Coordenadas iniciales (Centro de España o tu ciudad)
-const map = L.map("map").setView([40.416, -3.703], 6);
+// Mapa
+const map = L.map('map').setView([40.416, -3.703], 4); 
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "© OpenStreetMap",
-}).addTo(map);
+let markers = []; // Para los marcadores guardados en BD
+let tempMarker = null; // Para el marcador temporal (click)
 
-// 3. Función para Cargar Items (GET)
-async function loadItems() {
-  try {
-    const res = await fetch(`${API_URL}/items`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
+// 1. CARGAR ITEMS (Míos o de otro)
+async function loadItems(ownerEmail = null) {
+    // A. Limpiar marcadores viejos guardados
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
 
-    if (res.status === 401) logout(); // Token expirado
-
-    const items = await res.json();
-    const listContainer = document.getElementById("items-list");
-    listContainer.innerHTML = ""; // Limpiar lista anterior
-
-    items.forEach((item) => {
-      // A. Añadir marcador al mapa
-      if (item.latitude && item.longitude) {
-        L.marker([item.latitude, item.longitude])
-          .addTo(map)
-          .bindPopup(
-            `<b>${item.title}</b><br><img src="${item.image_url}" width="100">`
-          );
-      }
-
-      // B. Crear tarjeta en la lista HTML
-      const card = document.createElement("div");
-      card.className = "item-card";
-
-      // Botón eliminar solo para admins
-      let deleteBtn = "";
-      if (role === "admin") {
-        deleteBtn = `<button class="delete-btn" onclick="deleteItem('${item.id}')">Borrar</button>`;
-      }
-
-      card.innerHTML = `
-                <img src="${item.image_url}" alt="Imagen">
-                <div>
-                    <h4>${item.title}</h4>
-                    <p>📍 ${item.address}</p>
-                    <small>Subido por: ${item.owner}</small>
-                    <br><br>
-                    ${deleteBtn}
-                </div>
-            `;
-      listContainer.appendChild(card);
-    });
-  } catch (err) {
-    console.error("Error cargando items", err);
-  }
-}
-
-// 4. Función para Crear Item (POST)
-document.getElementById("itemForm")?.addEventListener("submit", async (e) => {
-  e.preventDefault();
-
-  const title = document.getElementById("title").value;
-  const address = document.getElementById("address").value;
-  const fileInput = document.getElementById("file");
-
-  const formData = new FormData();
-  formData.append("title", title);
-  formData.append("address", address);
-  formData.append("file", fileInput.files[0]);
-
-  try {
-    const res = await fetch(`${API_URL}/items`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` }, // Importante: Bearer Token
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      throw new Error(errorData.detail || "Error al subir");
+    // B. Limpiar el marcador temporal si existía
+    if (tempMarker) {
+        map.removeLayer(tempMarker);
+        tempMarker = null;
+        document.getElementById("itemForm").reset();
     }
 
-    alert("Lugar guardado y geolocalizado!");
-    document.getElementById("itemForm").reset();
-    loadItems(); // Recargar mapa y lista
-  } catch (err) {
-    alert("Error: " + err.message);
-  }
-});
+    let url = `${API_URL}/items`;
+    if (ownerEmail) {
+        url += `?owner=${ownerEmail}`;
+        // UI: Modo Visita 
+        document.getElementById("mapTitle").innerText = `Mapa de: ${ownerEmail}`;
+        document.getElementById("addFormPanel").classList.add("hidden"); // Ocultar formulario 
+        document.getElementById("visitsPanel").classList.add("hidden");  // Ocultar mis visitas
+    } else {
+        // UI: Modo Mi Mapa
+        document.getElementById("mapTitle").innerText = "Mi Mapa";
+        document.getElementById("addFormPanel").classList.remove("hidden");
+        document.getElementById("visitsPanel").classList.remove("hidden");
+        loadVisits(); // Cargar historial de visitas recibidas
+    }
 
-// 5. Función para Borrar Item (DELETE)
-window.deleteItem = async (id) => {
-  if (!confirm("¿Seguro que quieres borrarlo?")) return;
+    try {
+        const res = await fetch(url, { headers: { "Authorization": `Bearer ${token}` } });
+        if (!res.ok) throw new Error("Error cargando mapa");
+        const items = await res.json();
 
-  try {
-    const res = await fetch(`${API_URL}/items/${id}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${token}` },
+        items.forEach(item => {
+            if (item.latitude && item.longitude) {
+                // Lógica para mostrar imagen SOLO si existe (Opcional)
+                let imageHTML = "";
+                if (item.image_url && item.image_url !== "") {
+                    imageHTML = `<br><img src="${item.image_url}" width="150" style="margin-top:5px;">`;
+                }
+
+                const marker = L.marker([item.latitude, item.longitude])
+                    .addTo(map)
+                    .bindPopup(`<b>${item.title}</b><br>${item.address}${imageHTML}`);
+                markers.push(marker);
+            }
+        });
+    } catch (err) {
+        alert("No se pudo cargar el mapa (¿El usuario existe?)");
+    }
+}
+
+// 2. CARGAR MIS VISITAS RECIBIDAS
+async function loadVisits() {
+    const res = await fetch(`${API_URL}/my-visits`, { headers: { "Authorization": `Bearer ${token}` } });
+    const visits = await res.json();
+    const list = document.getElementById("visitsList");
+    list.innerHTML = "";
+    
+    visits.forEach(v => {
+        const li = document.createElement("li");
+        li.innerText = `📅 ${new Date(v.timestamp).toLocaleString()} - 👤 ${v.visitor}`;
+        list.appendChild(li);
+    });
+}
+
+// 3. FUNCIONES DE BOTONES
+function searchUserMap() {
+    const email = document.getElementById("searchEmail").value;
+    if(email) loadItems(email);
+}
+
+function resetMap() {
+    document.getElementById("searchEmail").value = "";
+    loadItems(); // Carga el mío por defecto
+}
+
+// 4. SUBIR NUEVO LUGAR (IMAGEN OPCIONAL)
+document.getElementById("itemForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("title", document.getElementById("title").value);
+    formData.append("address", document.getElementById("address").value);
+    
+    // Solo añadimos el archivo si el usuario ha seleccionado uno
+    const fileInput = document.getElementById("file");
+    if (fileInput.files.length > 0) {
+        formData.append("file", fileInput.files[0]);
+    }
+
+    const res = await fetch(`${API_URL}/items`, {
+        method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: formData
     });
 
     if (res.ok) {
-      alert("Eliminado");
-      location.reload(); // Recarga simple para limpiar marcadores del mapa
+        alert("Lugar añadido!");
+        // Limpiamos también el marcador temporal al guardar
+        if (tempMarker) {
+            map.removeLayer(tempMarker);
+            tempMarker = null;
+        }
+        document.getElementById("itemForm").reset();
+        loadItems(); // Recargar mi mapa
     } else {
-      alert("No se pudo eliminar");
+        alert("Error al guardar");
     }
-  } catch (err) {
-    console.error(err);
-  }
-};
+});
 
-// 6. Logout
-window.logout = () => {
-  localStorage.removeItem("token");
-  localStorage.removeItem("role");
-  localStorage.removeItem("username");
-  window.location.href = "login.html";
-};
+function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
 
-// Cargar al iniciar
+// --- NUEVO: FUNCIONALIDAD CLICK EN MAPA (REVERSE GEOCODING) ---
+map.on('click', async function(e) {
+    // 1. SEGURIDAD: Si estamos visitando a otro, NO permitir poner marcadores
+    if (document.getElementById("addFormPanel").classList.contains("hidden")) {
+        return; 
+    }
+
+    // 2. Obtener coordenadas del clic
+    const lat = e.latlng.lat;
+    const lng = e.latlng.lng;
+
+    // 3. Si ya había uno, lo quitamos para poner el nuevo
+    if (tempMarker) {
+        map.removeLayer(tempMarker);
+    }
+
+    // 4. Creamos el marcador temporal
+    tempMarker = L.marker([lat, lng], { draggable: true }).addTo(map);
+    
+    // Feedback visual y funcionalidad de borrar al hacer clic sobre él
+    tempMarker.bindPopup("📍 Ubicación seleccionada.<br>Haz clic en mí para deshacer.").openPopup();
+    
+    tempMarker.on('click', function() {
+        map.removeLayer(this);
+        tempMarker = null;
+        document.getElementById("itemForm").reset();
+    });
+
+    // 5. Rellenar input mientras buscamos
+    document.getElementById("address").value = "Buscando dirección...";
+
+    // 6. Llamar a la API de Nominatim para obtener la dirección (Reverse Geocoding)
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        const data = await response.json();
+
+        if (data && data.display_name) {
+            // Rellenar el formulario automáticamente
+            document.getElementById("address").value = data.display_name;
+            
+            // Truco extra: Si el campo título está vacío, ponerle la ciudad
+            if (document.getElementById("title").value === "") {
+                const city = data.address.city || data.address.town || data.address.village || "Ubicación";
+                document.getElementById("title").value = city;
+            }
+        } else {
+            document.getElementById("address").value = "Dirección no encontrada, introduce manual";
+        }
+    } catch (error) {
+        console.error("Error en reverse geocoding:", error);
+        document.getElementById("address").value = ""; // Limpiar si falla
+    }
+});
+
+// Inicio
 loadItems();

@@ -2,35 +2,46 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Mapa de Examen</title>
+    <title>MiMapa - Examen</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h1>Dashboard</h1>
-            <button onclick="logout()">Cerrar Sesión</button>
+            <h1>MiMapa 🌍</h1>
+            <button onclick="logout()" style="background: #dc3545; color: white; border: none; padding: 5px 10px;">Salir</button>
         </div>
 
         <p id="userInfo">Cargando...</p>
 
-        <div id="adminPanel" class="hidden">
-            <h3>Añadir Nuevo Lugar</h3>
+        <div style="background: #e9ecef; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+            <h3>🔍 Visitar otro mapa</h3>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="searchEmail" placeholder="Email del usuario a visitar">
+                <button onclick="searchUserMap()">Buscar</button>
+                <button onclick="resetMap()" style="background: #6c757d;">Volver a mi mapa</button>
+            </div>
+        </div>
+
+        <div id="addFormPanel">
+            <h3>📍 Añadir Marcador</h3>
             <form id="itemForm">
-                <input type="text" id="title" placeholder="Título del lugar" required>
-                <input type="text" id="address" placeholder="Dirección (Ej: Calle Gran Via 1, Madrid)" required>
-                <input type="file" id="file" required>
-                <button type="submit" style="background: green; color: white; border: none; padding: 10px;">Guardar y Subir</button>
+                <input type="text" id="title" placeholder="Ciudad/País (Ej: París)" required>
+                <input type="text" id="address" placeholder="Dirección para coordenadas" required>
+                <input type="file" id="file">
+                <button type="submit" style="background: green; color: white;">Guardar Visita</button>
             </form>
             <hr>
         </div>
 
-        <h3>Mapa</h3>
+        <h3 id="mapTitle">Mi Mapa</h3>
         <div id="map"></div>
 
-        <h3>Listado de Lugares</h3>
-        <div id="items-list"></div>
+        <div id="visitsPanel">
+            <h3>👀 Quién me ha visitado</h3>
+            <ul id="visitsList"></ul>
+        </div>
     </div>
 
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
