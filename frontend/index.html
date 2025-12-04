@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Mapa de Examen</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h1>Dashboard</h1>
+            <button onclick="logout()">Cerrar Sesión</button>
+        </div>
+
+        <p id="userInfo">Cargando...</p>
+
+        <div id="adminPanel" class="hidden">
+            <h3>Añadir Nuevo Lugar</h3>
+            <form id="itemForm">
+                <input type="text" id="title" placeholder="Título del lugar" required>
+                <input type="text" id="address" placeholder="Dirección (Ej: Calle Gran Via 1, Madrid)" required>
+                <input type="file" id="file" required>
+                <button type="submit" style="background: green; color: white; border: none; padding: 10px;">Guardar y Subir</button>
+            </form>
+            <hr>
+        </div>
+
+        <h3>Mapa</h3>
+        <div id="map"></div>
+
+        <h3>Listado de Lugares</h3>
+        <div id="items-list"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - Examen</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container" style="max-width: 400px; text-align: center;">
+        <h2>Acceso Examen</h2>
+        
+        <form id="loginForm">
+            <input type="text" id="username" placeholder="Usuario" required>
+            <input type="password" id="password" placeholder="Contraseña" required>
+            <button type="submit" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none;">Entrar</button>
+        </form>
+
+        <hr>
+        <h3>Registro Rápido (Para pruebas)</h3>
+        <form id="registerForm">
+            <input type="text" id="regUser" placeholder="Nuevo Usuario" required>
+            <input type="password" id="regPass" placeholder="Nueva Contraseña" required>
+            <select id="regRole" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                <option value="user">Usuario Normal</option>
+                <option value="admin">Administrador</option>
+            </select>
+            <button type="submit" style="width: 100%; padding: 10px;">Registrar</button>
+        </form>
+    </div>
+
+    <script>
+        const API_URL = "http://localhost:8000"; // CAMBIAR AL URL DE RENDER EN PRODUCCIÓN
+
+        // LOGIN
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append("username", document.getElementById('username').value);
+            formData.append("password", document.getElementById('password').value);
+
+            try {
+                const res = await fetch(`${API_URL}/token`, { method: "POST", body: formData });
+                if (!res.ok) throw new Error("Credenciales malas");
+                
+                const data = await res.json();
+                localStorage.setItem("token", data.access_token);
+                
+                // Decodificar JWT para sacar el rol (simple hack para no usar librerías externas)
+                const payload = JSON.parse(atob(data.access_token.split('.')[1]));
+                localStorage.setItem("role", payload.role);
+                localStorage.setItem("username", payload.sub);
+
+                window.location.href = "index.html";
+            } catch (err) {
+                alert("Error en login: " + err.message);
+            }
+        });
+
+        // REGISTRO
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append("username", document.getElementById('regUser').value);
+            formData.append("password", document.getElementById('regPass').value);
+            formData.append("role", document.getElementById('regRole').value);
+
+            const res = await fetch(`${API_URL}/register`, { method: "POST", body: formData });
+            if (res.ok) alert("Usuario creado. Ahora haz login.");
+            else alert("Error al crear usuario.");
+        });
+    </script>
+</body>
+</html>
