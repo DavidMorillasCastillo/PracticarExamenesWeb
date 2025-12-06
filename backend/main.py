@@ -170,6 +170,10 @@ async def create_item(
     new_item["_id"] = res.inserted_id
     return fix_id(new_item)
 
+# Añadir esto en backend/main.py para arreglar el 404
+
+
+
 # REQUISITO EXAMEN: Listar visitas recibidas [cite: 64]
 @app.get("/my-visits", response_model=List[VisitResponse])
 def get_my_visits(current_user: dict = Depends(get_current_user)):
