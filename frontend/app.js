@@ -1,6 +1,6 @@
 // CAMBIAR EN PRODUCCIÓN
-const API_URL = "http://localhost:8000"; 
-// const API_URL = "https://tu-backend.onrender.com";
+//const API_URL = "http://localhost:8000"; 
+const API_URL = "https://practicarexamenesweb.onrender.com";
 
 const token = localStorage.getItem("token");
 const myUsername = localStorage.getItem("username"); // En este examen es el Email
